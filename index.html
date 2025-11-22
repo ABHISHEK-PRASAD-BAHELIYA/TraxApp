@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trax & Auto Master</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { -webkit-tap-highlight-color: transparent; user-select: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- FIREBASE SETUP ---
+        // TODO: REPLACE THIS SECTION WITH YOUR FIREBASE CONFIG
+          const firebaseConfig = {
+            apiKey: "AIzaSyCpe6nerQMIIHpGMbuGb0w0ibl69VS3CVY",
+            authDomain: "traxapp-4b83f.firebaseapp.com",
+            projectId: "traxapp-4b83f",
+            storageBucket: "traxapp-4b83f.firebasestorage.app",
+            messagingSenderId: "398574835154",
+            appId: "1:398574835154:web:8da53585db657b7833640b",
+            measurementId: "G-LCRLBD6HFL"
+        };
+
+        // Check if user has updated the config
+        const isDemoMode = firebaseConfig.apiKey === "AIzaSyCpe6nerQMIIHpGMbuGb0w0ibl69VS3CVY";
+
+        let db;
+        if (!isDemoMode) {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+            } catch (error) {
+                console.error("Firebase Init Error", error);
+            }
+        }
+
+        // --- ICONS (Defined Inline to Fix ReferenceError) ---
+        const Icon = ({ children, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Bus = (p) => <Icon {...p}><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="17" cy="18" r="2"/></Icon>;
+        const Car = (p) => <Icon {...p}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></Icon>;
+        const Wrench = (p) => <Icon {...p}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></Icon>;
+        const IndianRupee = (p) => <Icon {...p}><path d="M6 3h12"/><path d="M6 8h12"/><path d="M6 13h12"/><path d="M6 13l5.5 10"/><path d="M6 13a4.5 4.5 0 0 1 0-9"/></Icon>;
+        const Plus = (p) => <Icon {...p}><path d="M5 12h14"/><path d="M12 5v14"/></Icon>;
+        const Trash2 = (p) => <Icon {...p}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></Icon>;
+        const CheckCircle = (p) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>;
+        const User = (p) => <Icon {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Icon>;
+        const MapPin = (p) => <Icon {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Icon>;
+        const Calendar = (p) => <Icon {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></Icon>;
+        const TrendingUp = (p) => <Icon {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></Icon>;
+        const ArrowRight = (p) => <Icon {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></Icon>;
+        const AlertCircle = (p) => <Icon {...p}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></Icon>;
+
+        // --- COMPONENTS ---
+        const Card = ({ children, className = "", onClick }) => (
+            <div onClick={onClick} className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-5 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const Button = ({ onClick, children, variant = "primary", className = "", size = "md" }) => {
+            const baseStyle = "font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2";
+            const variants = {
+                primary: "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-200",
+                secondary: "bg-gray-100 text-gray-700",
+                danger: "bg-red-50 text-red-600 border border-red-100",
+                success: "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200"
+            };
+            return <button onClick={onClick} className={`${baseStyle} ${variants[variant]} p-3 w-full ${className}`}>{children}</button>;
+        };
+
+        // --- MAIN APP ---
+        function App() {
+            const [activeTab, setActiveTab] = React.useState('dashboard');
+            const [traxTab, setTraxTab] = React.useState('school');
+            
+            // Data State
+            const [students, setStudents] = React.useState([]);
+            const [bookings, setBookings] = React.useState([]);
+            const [collections, setCollections] = React.useState([]);
+            const [repairs, setRepairs] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+
+            // Local Storage Helper
+            const loadLocal = (key) => JSON.parse(localStorage.getItem(key) || '[]');
+            const saveLocal = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+
+            // Load Data
+            React.useEffect(() => {
+                if (isDemoMode) {
+                    // Load from Local Storage in Demo Mode
+                    setStudents(loadLocal('tam_students'));
+                    setBookings(loadLocal('tam_bookings'));
+                    setCollections(loadLocal('tam_collections'));
+                    setRepairs(loadLocal('tam_repairs'));
+                    setLoading(false);
+                } else if (db) {
+                    // Load from Firebase in Cloud Mode
+                    const unsubStudents = db.collection('students').onSnapshot(snap => 
+                        setStudents(snap.docs.map(doc => ({...doc.data(), id: doc.id}))));
+                    const unsubBookings = db.collection('bookings').onSnapshot(snap => 
+                        setBookings(snap.docs.map(doc => ({...doc.data(), id: doc.id}))));
+                    const unsubCollections = db.collection('collections').onSnapshot(snap => 
+                        setCollections(snap.docs.map(doc => ({...doc.data(), id: doc.id}))));
+                    const unsubRepairs = db.collection('repairs').onSnapshot(snap => {
+                        setRepairs(snap.docs.map(doc => ({...doc.data(), id: doc.id})));
+                        setLoading(false);
+                    }, err => console.log("DB Error", err));
+
+                    return () => {
+                        unsubStudents(); unsubBookings(); unsubCollections(); unsubRepairs();
+                    };
+                }
+            }, []);
+
+            // --- ACTIONS ---
+            const saveData = (collection, newData) => {
+                if (isDemoMode) {
+                    // Save to Local Storage
+                    let currentData;
+                    let key;
+                    if (collection === 'students') { currentData = students; key = 'tam_students'; }
+                    if (collection === 'bookings') { currentData = bookings; key = 'tam_bookings'; }
+                    if (collection === 'collections') { currentData = collections; key = 'tam_collections'; }
+                    if (collection === 'repairs') { currentData = repairs; key = 'tam_repairs'; }
+                    
+                    const updated = [...currentData, { ...newData, id: Date.now().toString() }];
+                    
+                    if (collection === 'students') setStudents(updated);
+                    if (collection === 'bookings') setBookings(updated);
+                    if (collection === 'collections') setCollections(updated);
+                    if (collection === 'repairs') setRepairs(updated);
+                    
+                    saveLocal(key, updated);
+                } else if (db) {
+                    // Save to Firebase
+                    db.collection(collection).add({ ...newData, timestamp: new Date() });
+                }
+            };
+
+            const deleteItem = (collection, id) => {
+                if(!confirm('Delete this item?')) return;
+
+                if (isDemoMode) {
+                    let key;
+                    if (collection === 'students') key = 'tam_students';
+                    if (collection === 'bookings') key = 'tam_bookings';
+                    if (collection === 'collections') key = 'tam_collections';
+                    if (collection === 'repairs') key = 'tam_repairs';
+
+                    const filterFunc = (item) => item.id !== id;
+                    
+                    if (collection === 'students') { const u = students.filter(filterFunc); setStudents(u); saveLocal(key, u); }
+                    if (collection === 'bookings') { const u = bookings.filter(filterFunc); setBookings(u); saveLocal(key, u); }
+                    if (collection === 'collections') { const u = collections.filter(filterFunc); setCollections(u); saveLocal(key, u); }
+                    if (collection === 'repairs') { const u = repairs.filter(filterFunc); setRepairs(u); saveLocal(key, u); }
+                } else if (db) {
+                    db.collection(collection).doc(id).delete();
+                }
+            };
+
+            const updateItem = (collection, id, updates) => {
+                if (isDemoMode) {
+                     if (collection === 'students') {
+                        const updated = students.map(s => s.id === id ? {...s, ...updates} : s);
+                        setStudents(updated);
+                        saveLocal('tam_students', updated);
+                     }
+                } else if (db) {
+                    db.collection(collection).doc(id).update(updates);
+                }
+            };
+
+            // --- HANDLERS ---
+            const addStudent = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                saveData('students', {
+                    name: formData.get('name'),
+                    stop: formData.get('stop'),
+                    feesPaid: false,
+                    status: 'pending'
+                });
+                e.target.reset();
+            };
+
+            const toggleStudentStatus = (s) => {
+                const nextStatus = s.status === 'pending' ? 'picked' : s.status === 'picked' ? 'dropped' : 'pending';
+                updateItem('students', s.id, { status: nextStatus });
+            };
+
+            const addCollection = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                saveData('collections', {
+                    vehicleId: formData.get('vehicleId'),
+                    amount: Number(formData.get('amount')),
+                    date: new Date().toLocaleDateString(),
+                    notes: formData.get('notes')
+                });
+                e.target.reset();
+            };
+
+            const addRepair = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                saveData('repairs', {
+                    vehicleId: formData.get('vehicleId'),
+                    amount: Number(formData.get('amount')),
+                    description: formData.get('description'),
+                    date: new Date().toLocaleDateString()
+                });
+                e.target.reset();
+            };
+
+             const addBooking = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                saveData('bookings', {
+                    client: formData.get('client'),
+                    date: formData.get('date'),
+                    destination: formData.get('destination'),
+                    amount: Number(formData.get('amount')),
+                    advance: Number(formData.get('advance'))
+                });
+                e.target.reset();
+            };
+
+            // Helper Calculations
+            const getVehicleIncome = (vid) => collections.filter(c => c.vehicleId === vid).reduce((s, c) => s + c.amount, 0);
+            const getVehicleExpense = (vid) => repairs.filter(r => r.vehicleId === vid).reduce((s, r) => s + r.amount, 0);
+            const totalIncome = (students.length * 1200) + bookings.reduce((s,b)=>s+(b.amount||0),0) + collections.reduce((s,c)=>s+(c.amount||0),0);
+            const totalExpense = repairs.reduce((s,r)=>s+(r.amount||0),0);
+
+            if (loading) return <div className="flex h-screen items-center justify-center">Loading Data...</div>;
+
+            // --- VIEWS ---
+            const Dashboard = () => (
+                <div className="space-y-6 p-4 pb-24 animate-fade-in">
+                    {isDemoMode && (
+                        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-start gap-3 text-sm">
+                            <AlertCircle className="shrink-0 mt-0.5" size={16} />
+                            <div>
+                                <strong>Offline Demo Mode</strong><br/>
+                                Data is saving to your phone only. Add Firebase keys to code to sync online.
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-none">
+                            <div className="text-emerald-100 text-xs font-bold uppercase tracking-wider mb-1">Total Income</div>
+                            <div className="text-2xl font-bold">₹{totalIncome.toLocaleString()}</div>
+                        </Card>
+                        <Card className="bg-white border-red-100">
+                            <div className="text-red-500 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">Expenses</div>
+                            <div className="text-2xl font-bold text-gray-800">₹{totalExpense.toLocaleString()}</div>
+                        </Card>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <h3 className="font-bold text-gray-800">Your Fleet</h3>
+                        <div onClick={() => setActiveTab('trax')} className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center"><Bus /></div>
+                                <div><div className="font-bold">Toofan Trax</div><div className="text-xs text-gray-500">School & Events</div></div>
+                            </div>
+                        </div>
+                         <div onClick={() => setActiveTab('autos')} className="bg-white p-4 rounded-2xl border border-orange-100 shadow-sm flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-orange-500 text-white w-12 h-12 rounded-xl flex items-center justify-center"><Car /></div>
+                                <div><div className="font-bold">Auto Rickshaws</div><div className="text-xs text-gray-500">Daily Income</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const TraxView = () => (
+                <div className="space-y-4 p-4 pb-24">
+                     <div className="bg-gray-100 p-1.5 rounded-xl flex">
+                        <button onClick={() => setTraxTab('school')} className={`flex-1 py-2 text-sm font-bold rounded-lg ${traxTab === 'school' ? 'bg-white shadow text-blue-700' : 'text-gray-500'}`}>School</button>
+                        <button onClick={() => setTraxTab('bookings')} className={`flex-1 py-2 text-sm font-bold rounded-lg ${traxTab === 'bookings' ? 'bg-white shadow text-purple-700' : 'text-gray-500'}`}>Bookings</button>
+                    </div>
+                    
+                    {traxTab === 'school' ? (
+                        <div className="space-y-4">
+                            {students.map(s => (
+                                <div key={s.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <div className="font-bold">{s.name}</div>
+                                        <div className="text-xs text-gray-500">{s.stop}</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => toggleStudentStatus(s)} className={`w-10 h-10 rounded-full flex items-center justify-center ${s.status === 'dropped' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                                            {s.status === 'dropped' ? <CheckCircle size={20}/> : <User size={20}/>}
+                                        </button>
+                                        <button onClick={() => deleteItem('students', s.id)} className="text-gray-300"><Trash2 size={20}/></button>
+                                    </div>
+                                </div>
+                            ))}
+                            <form onSubmit={addStudent} className="flex gap-2 mt-4">
+                                <input name="name" placeholder="Name" className="flex-1 p-3 border rounded-xl" required/>
+                                <input name="stop" placeholder="Stop" className="w-1/3 p-3 border rounded-xl" required/>
+                                <button className="bg-blue-600 text-white p-3 rounded-xl"><Plus/></button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            <Card className="bg-purple-50 border-purple-100">
+                                <form onSubmit={addBooking} className="space-y-3">
+                                    <input name="client" placeholder="Client" className="w-full p-3 rounded-xl border" required />
+                                    <div className="flex gap-2">
+                                        <input type="date" name="date" className="w-1/2 p-3 rounded-xl border" required />
+                                        <input name="destination" placeholder="Dest." className="w-1/2 p-3 rounded-xl border" required />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input name="amount" type="number" placeholder="Total" className="w-1/2 p-3 rounded-xl border" required />
+                                        <input name="advance" type="number" placeholder="Adv." className="w-1/2 p-3 rounded-xl border" required />
+                                    </div>
+                                    <Button className="bg-purple-600 text-white">Add Booking</Button>
+                                </form>
+                            </Card>
+                             {bookings.map(b => (
+                                <div key={b.id} className="bg-white p-4 border-l-4 border-purple-500 rounded-xl shadow-sm flex justify-between">
+                                    <div><div className="font-bold">{b.client}</div><div className="text-xs">{b.date}</div></div>
+                                    <div className="text-right"><div className="font-bold">₹{b.amount}</div><button onClick={() => deleteItem('bookings', b.id)} className="text-red-300 text-xs">Delete</button></div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+
+            const AutosView = () => (
+                <div className="space-y-4 p-4 pb-24">
+                    <Card className="bg-orange-50 border-orange-100">
+                        <form onSubmit={addCollection} className="space-y-3">
+                            <div className="flex gap-3">
+                                <select name="vehicleId" className="w-1/2 p-3 rounded-xl border" required>
+                                    <option value="auto1">Auto #1</option>
+                                    <option value="auto2">Auto #2</option>
+                                </select>
+                                <input name="amount" type="number" placeholder="₹" className="w-1/2 p-3 rounded-xl border font-bold" required />
+                            </div>
+                            <input name="notes" placeholder="Notes" className="w-full p-3 rounded-xl border" />
+                            <Button className="bg-orange-500 text-white">Save</Button>
+                        </form>
+                    </Card>
+                     {collections.map(c => (
+                        <div key={c.id} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center">
+                            <div className="flex gap-3 items-center">
+                                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-xs font-bold text-orange-600">{c.vehicleId === 'auto1' ? 'A1' : 'A2'}</div>
+                                <div><div className="font-bold">₹{c.amount}</div><div className="text-xs text-gray-500">{c.date}</div></div>
+                            </div>
+                            <button onClick={() => deleteItem('collections', c.id)} className="text-gray-300"><Trash2 size={16}/></button>
+                        </div>
+                    ))}
+                </div>
+            );
+
+             const RepairsView = () => (
+                <div className="space-y-4 p-4 pb-24">
+                    <Card className="bg-red-50 border-red-100">
+                        <form onSubmit={addRepair} className="space-y-3">
+                            <select name="vehicleId" className="w-full p-3 rounded-xl border" required>
+                                <option value="trax">Trax</option>
+                                <option value="auto1">Auto #1</option>
+                                <option value="auto2">Auto #2</option>
+                            </select>
+                            <div className="flex gap-2">
+                                <input name="description" placeholder="Part" className="flex-1 p-3 rounded-xl border" required />
+                                <input name="amount" type="number" placeholder="Cost" className="w-24 p-3 rounded-xl border font-bold" required />
+                            </div>
+                            <Button className="bg-red-500 text-white">Save Expense</Button>
+                        </form>
+                    </Card>
+                    {repairs.map(r => (
+                        <div key={r.id} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center border-l-4 border-red-400">
+                            <div><div className="font-bold">{r.description}</div><div className="text-xs uppercase text-gray-500">{r.vehicleId}</div></div>
+                            <div className="text-right"><div className="font-bold text-red-600">-₹{r.amount}</div><button onClick={() => deleteItem('repairs', r.id)} className="text-red-200 text-xs">X</button></div>
+                        </div>
+                    ))}
+                </div>
+            );
+
+            // --- NAVIGATION ---
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <div className="bg-gradient-to-r from-blue-800 to-blue-600 p-6 pb-10 shadow-lg">
+                        <div className="text-white font-black text-2xl tracking-tight">Trax <span className="font-light text-blue-100">&</span> Autos</div>
+                    </div>
+
+                    <div className="flex-1 -mt-6 z-10 w-full max-w-md mx-auto">
+                        {activeTab === 'dashboard' && <Dashboard />}
+                        {activeTab === 'trax' && <TraxView />}
+                        {activeTab === 'autos' && <AutosView />}
+                        {activeTab === 'repairs' && <RepairsView />}
+                    </div>
+
+                    <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 p-2 flex justify-around pb-safe shadow-2xl z-50">
+                        <button onClick={() => setActiveTab('dashboard')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab==='dashboard' ? 'text-blue-600' : 'text-gray-400'}`}><TrendingUp size={24}/><span className="text-[10px] font-bold">Home</span></button>
+                        <button onClick={() => setActiveTab('trax')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab==='trax' ? 'text-blue-600' : 'text-gray-400'}`}><Bus size={24}/><span className="text-[10px] font-bold">Trax</span></button>
+                        <button onClick={() => setActiveTab('autos')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab==='autos' ? 'text-orange-600' : 'text-gray-400'}`}><Car size={24}/><span className="text-[10px] font-bold">Autos</span></button>
+                        <button onClick={() => setActiveTab('repairs')} className={`p-2 rounded-lg flex flex-col items-center ${activeTab==='repairs' ? 'text-red-600' : 'text-gray-400'}`}><Wrench size={24}/><span className="text-[10px] font-bold">Repair</span></button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
